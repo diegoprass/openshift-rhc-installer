@@ -61,7 +61,8 @@ Function RHC_Setup
   # First wee need to find out if it is safe to exec() passing password as a parameter
   # since it may be logged by nsis somewhere.
   #ExecWait '"$PROGRAMFILES\git\bin\sh" -c "rhc setup --create-token --server \"$libraServerURL\" --rhlogin \"$rhlogin\" --password \"$password\""'
-  ExecWait '"$PROGRAMFILES\git\bin\sh" -c "rhc setup --create-token --server \"$libraServerURL\" --rhlogin \"$rhlogin\""'
+  ExecWait '"$PROGRAMFILES\git\bin\sh" -c "
+  rhc server-add \"$libraServerURL\" getup --use --rhlogin \"$rhlogin\" --use-authorization-tokens"'
 
   MessageBox MB_OK 'Installation has finished. Now, run "Git Bash" and execute "rhc --help" to start the game ;)'
 FunctionEnd
