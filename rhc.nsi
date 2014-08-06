@@ -9,7 +9,7 @@ SetCompressor /SOLID lzma
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\${PRODUCT_NAME}"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
 !define PRODUCT_UNINST_ROOT_KEY "HKLM"
-!define GIT_INSTALLER "Git-1.8.1.2-preview20130201.exe"
+!define GIT_INSTALLER "Git-1.9.4-preview20140611.exe"
 !define RUBY_INSTALLER "rubyinstaller-1.9.3-p545.exe"
 
 ; MUI 1.67 compatible ------
@@ -273,7 +273,7 @@ Section "install git bash" SEC02
   IfFileExists ${GIT_INSTALLER} installGit
 
   ; download and install
-  NSISdl::download /PROXY "$HTTP_PROXY" "https://msysgit.googlecode.com/files/${GIT_INSTALLER}" "${GIT_INSTALLER}"
+  NSISdl::download /PROXY "$HTTP_PROXY" "https://github.com/msysgit/msysgit/releases/download/Git-1.9.4-preview20140611/${GIT_INSTALLER}" "${GIT_INSTALLER}"
   Pop $R0
   ${If} $R0 <> 'success'
     ; download not successfull
