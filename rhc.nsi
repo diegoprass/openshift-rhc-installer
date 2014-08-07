@@ -14,11 +14,26 @@ SetCompressor /SOLID lzma
 
 ; MUI 1.67 compatible ------
 !include "MUI.nsh"
+!define LOGICLIB_STRCMP
 !include LogicLib.nsh
 !include nsDialogs.nsh
 
 !addincludedir .\include
 !include EnvVarUpdate.nsh
+!include CharToASCII.nsh
+!include Base64.nsh
+
+!addplugindir .\plugins\Inetc\plugins
+
+# inetc need a clear stack
+!macro ClearStack
+    ${Do}
+        Pop $0
+        IfErrors send
+    ${Loop}
+send:
+!macroend
+
 
 ; MUI Settings
 !define MUI_ABORTWARNING
@@ -50,7 +65,7 @@ Page custom libraServerPage libraServerPageLeave
 
 Var fullname
 Var rhlogin
-#Var password
+Var password
 Var libraServerURL
 
 Function RHC_Setup
@@ -58,11 +73,8 @@ Function RHC_Setup
   ExecWait '"$PROGRAMFILES\git\bin\git.exe" config --global user.email "$rhlogin"'
   ExecWait '"$PROGRAMFILES\git\bin\git.exe" config --global push.default simple"'
 
-  # First wee need to find out if it is safe to exec() passing password as a parameter
-  # since it may be logged by nsis somewhere.
-  #ExecWait '"$PROGRAMFILES\git\bin\sh" -c "rhc setup --create-token --server \"$libraServerURL\" --rhlogin \"$rhlogin\" --password \"$password\""'
-  ExecWait '"$PROGRAMFILES\git\bin\sh" -c "
-  rhc server-add \"$libraServerURL\" getup --use --rhlogin \"$rhlogin\" --use-authorization-tokens"'
+  ExecWait '"$PROGRAMFILES\git\bin\sh" -c "rhc setup --clean --create-token --server \"$libraServerURL\" --rhlogin \"$rhlogin\" --password \"$password\""'
+  #ExecWait '"$PROGRAMFILES\git\bin\sh" -c "rhc server-add \"$libraServerURL\" getup --use --rhlogin \"$rhlogin\" --password \"$password\" --use-authorization-tokens"'
 
   MessageBox MB_OK 'Installation has finished. Now, run "Git Bash" and execute "rhc --help" to start the game ;)'
 FunctionEnd
@@ -82,7 +94,7 @@ FunctionEnd
 ; MUI end ------
 
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
-OutFile "Install.exe"
+OutFile "RHC-Tools-Installer.exe"
 XPStyle on
 
 InstallDir "$PROGRAMFILES\${PRODUCT_NAME}"
@@ -142,7 +154,9 @@ Var customLibraServerRadio
 Var customLibraServerTextBox
 Var fullnameTextBox
 Var rhloginTextBox
-#Var passwordTextBox
+Var passwordTextBox
+Var basic_auth
+Var ret
 
 ; dialog create function
 Function libraServerPage
@@ -185,10 +199,10 @@ Function libraServerPage
   ${NSD_CreateText}  80u 98u 125u 11u ""
   Pop $rhloginTextBox
 
-  #${NSD_CreateLabel}    8u 114u 72u 11u "OpenShift Password"
-  #Pop $0
-  #${NSD_CreatePassword} 80u 114u 125u 11u ""
-  #Pop $passwordTextBox
+  ${NSD_CreateLabel}    8u 114u 72u 11u "OpenShift Password"
+  Pop $0
+  ${NSD_CreatePassword} 80u 114u 125u 11u ""
+  Pop $passwordTextBox
 
   ${NSD_SetFocus} $getupLibraServerRadio
   nsDialogs::Show $libraServerDialog
@@ -234,19 +248,38 @@ Function libraServerPageLeave
 
   ${NSD_GetText} $rhloginTextBox $rhlogin
   ${If} $rhlogin == ""
-    MessageBox MB_OK "Please, inform your login."
+    MessageBox MB_OK "Please, inform your login/email."
     ${NSD_SetFocus} $rhloginTextBox
     Abort
   ${EndIf}
 
-  #${NSD_GetText} $passwordTextBox $password
-  #${If} $password == ""
-  #  MessageBox MB_OK "Please, inform your password."
-  #  ${NSD_SetFocus} $passwordTextBox
-  #  Abort
-  #${EndIf}
+  ${NSD_GetText} $passwordTextBox $password
+  ${If} $password == ""
+    MessageBox MB_OK "Please, inform your password."
+    ${NSD_SetFocus} $passwordTextBox
+    Abort
+  ${EndIf}
 
-  #MessageBox MB_OK "server: [$libraServerURL], name: [$fullname], login: [$rhlogin], passwd: [$password]"
+  ${Base64_Encode} "$rhlogin:$password"
+  Pop $basic_auth
+
+  !insertmacro ClearStack
+
+  ${If} $HTTP_PROXY == ''
+    inetc::get /banner "Checking your credentials..."  /header "Authorization: Basic $basic_auth$\r$\nAccept: */*" "$libraServerURL/broker/rest/user.json" /end
+    Pop $ret
+  ${Else}
+    inetc::get /banner "Checking your credentials..."  /header "Authorization: Basic $basic_auth$\r$\nAccept: */*" /proxy $HTTP_PROXY "$libraServerURL/broker/rest/user.json" /end
+    Pop $ret
+  ${EndIf}
+
+  ${If} $ret != "OK"
+    MessageBox MB_OK "Unable to authenticate. Please check your connection or credentials."
+    ${NSD_SetFocus} $passwordTextBox
+    Abort
+  ${EndIf}
+
+  #MessageBox MB_OK "server: [$libraServerURL], name: [$fullname], login: [$rhlogin], passwd: [$password], auth: [$basic_auth]"
 
   ; set variable
   WriteRegExpandStr ${env_hklm} "LIBRA_SERVER" "$libraServerURL"
@@ -270,23 +303,10 @@ SectionEnd
 Var status
 Section "install git bash" SEC02
   SetOutPath "$INSTDIR"
-  IfFileExists ${GIT_INSTALLER} installGit
+  File "dist\${GIT_INSTALLER}"
 
-  ; download and install
-  NSISdl::download /PROXY "$HTTP_PROXY" "https://github.com/msysgit/msysgit/releases/download/Git-1.9.4-preview20140611/${GIT_INSTALLER}" "${GIT_INSTALLER}"
-  Pop $R0
-  ${If} $R0 <> 'success'
-    ; download not successfull
-    MessageBox MB_ICONEXCLAMATION "Git download failed."
-    Delete "$INSTDIR\${GIT_INSTALLER}"
-    Quit
-  ${EndIf}
-
-  ; download successful
-  installGit:
   ; run the one click installer
-  ClearErrors
-  ExecWait "${GIT_INSTALLER} /silent /nocancel /noicons"
+  ExecWait "dist\${GIT_INSTALLER} /sp- /silent"
   IfErrors onError
     Return
   onError:
@@ -296,23 +316,10 @@ SectionEnd
 
 Section "install ruby" SEC03
   SetOutPath "$INSTDIR"
-  ; download and install
-  IfFileExists ${RUBY_INSTALLER} installRuby
+  File "dist\${RUBY_INSTALLER}"
 
-  NSISdl::download /PROXY "$HTTP_PROXY" "http://dl.bintray.com/oneclick/rubyinstaller/${RUBY_INSTALLER}" ${RUBY_INSTALLER}
-  Pop $R0
-  ${If} $R0 <> 'success'
-    ; download not successfull
-    MessageBox MB_ICONEXCLAMATION "Ruby download failed. Please try again."
-    Delete "$INSTDIR\${RUBY_INSTALLER}"
-    Quit
-  ${EndIf}
-
-  ; download successful
-  installRuby:
   ; run the one click installer
-  ClearErrors
-  ExecWait '${RUBY_INSTALLER} /verysilent /noreboot /nocancel /noicons /dir="$INSTDIR/ruby"'
+  ExecWait 'dist\${RUBY_INSTALLER} /verysilent /noreboot /nocancel /noicons /dir="$INSTDIR/ruby"'
   IfErrors onError
     Return
   onError:
@@ -343,7 +350,6 @@ SectionEnd
 
 Section -Post
   WriteUninstaller "$INSTDIR\uninst.exe"
-  WriteRegStr HKLM "${PRODUCT_DIR_REGKEY}" "" "$INSTDIR\${RUBY_INSTALLER}"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayName" "$(^Name)"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "UninstallString" "$INSTDIR\uninst.exe"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayIcon" "$INSTDIR\openshift.ico"
@@ -377,8 +383,6 @@ Section Uninstall
   Delete "$DESKTOP\rhc.lnk"
   Delete "$SMPROGRAMS\rhc\rhc.lnk"
   Delete "$INSTDIR\openshift.ico"
-  Delete "$INSTDIR\${GIT_INSTALLER}"
-  Delete "$INSTDIR\${RUBY_INSTALLER}"
 
   RMDir "$SMPROGRAMS\rhc"
   RMDir "$INSTDIR"
