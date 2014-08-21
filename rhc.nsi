@@ -306,7 +306,7 @@ Section "install git bash" SEC02
   File "dist\${GIT_INSTALLER}"
 
   ; run the one click installer
-  ExecWait "dist\${GIT_INSTALLER} /sp- /silent"
+  ExecWait "dist\${GIT_INSTALLER}"
   IfErrors onError
     Return
   onError:
