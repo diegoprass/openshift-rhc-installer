@@ -11,6 +11,7 @@ SetCompressor /SOLID lzma
 !define PRODUCT_UNINST_ROOT_KEY "HKLM"
 !define GIT_INSTALLER "Git-1.9.4-preview20140611.exe"
 !define RUBY_INSTALLER "rubyinstaller-1.9.3-p545.exe"
+!define TORTOISE_INSTALLER "TortoiseGit-1.8.11.0-64bit.msi"
 
 ; MUI 1.67 compatible ------
 !include "MUI.nsh"
@@ -69,14 +70,8 @@ Var password
 Var libraServerURL
 
 Function RHC_Setup
-  ExecWait '"$PROGRAMFILES\git\bin\git.exe" config --global user.name "$fullname"'
-  ExecWait '"$PROGRAMFILES\git\bin\git.exe" config --global user.email "$rhlogin"'
-  ExecWait '"$PROGRAMFILES\git\bin\git.exe" config --global push.default simple"'
-
-  ExecWait '"$PROGRAMFILES\git\bin\sh" -c "rhc setup --clean --create-token --server \"$libraServerURL\" --rhlogin \"$rhlogin\" --password \"$password\""'
-  #ExecWait '"$PROGRAMFILES\git\bin\sh" -c "rhc server-add \"$libraServerURL\" getup --use --rhlogin \"$rhlogin\" --password \"$password\" --use-authorization-tokens"'
-
-  MessageBox MB_OK 'Installation has finished. Now, run "Git Bash" and execute "rhc --help" to start the game ;)'
+  ExecWait '"$PROGRAMFILES\git\bin\bash.exe" "$INSTDIR\post-install.sh" "$fullname" "$rhlogin" "$libraServerURL" "$rhlogin" "$password"'
+  MessageBox MB_OK 'Installation has finished. Run "Git Bash" and type "rhc apps" to list all your applications.'
 FunctionEnd
 
 ; Uninstaller pages
@@ -295,6 +290,7 @@ Section "copy files" SEC01
   File "rhc"
   File "rhc.bat"
   File "openshift.ico"
+  File "post-install.sh"
   CreateDirectory "$SMPROGRAMS\OpenShift"
   CreateShortCut "$SMPROGRAMS\OpenShift\rhc.lnk" "$INSTDIR\rhc.bat"
   CreateShortCut "$DESKTOP\rhc.lnk" "$INSTDIR\rhc.bat"
@@ -306,7 +302,7 @@ Section "install git bash" SEC02
   File "dist\${GIT_INSTALLER}"
 
   ; run the one click installer
-  ExecWait "dist\${GIT_INSTALLER}"
+  ExecWait "dist\${GIT_INSTALLER} /sp- /silent /nocancel /loadinf=dist\git-install.cfg"
   IfErrors onError
     Return
   onError:
@@ -319,7 +315,7 @@ Section "install ruby" SEC03
   File "dist\${RUBY_INSTALLER}"
 
   ; run the one click installer
-  ExecWait 'dist\${RUBY_INSTALLER} /verysilent /noreboot /nocancel /noicons /dir="$INSTDIR/ruby"'
+  ExecWait 'dist\${RUBY_INSTALLER} /verysilent /noreboot /nocancel /noicons /dir="$INSTDIR/ruby"  /loadinf=dist\ruby-install.cfg'
   IfErrors onError
     Return
   onError:
@@ -342,6 +338,19 @@ Section "install rhc" SEC04
     Return
   onError:
     MessageBox MB_ICONEXCLAMATION 'Gem install failed. Please install the rhc gem manually: "$INSTDIR\ruby\bin\gem.bat" install rhc'
+SectionEnd
+
+Section "install tortoise" SEC05
+  SetOutPath "$INSTDIR"
+  File "dist\${TORTOISE_INSTALLER}"
+
+  ; run the one click installer
+  ExecWait '"$SYSDIR\msiExec" /i "$INSTDIR\${TORTOISE_INSTALLER}"'
+
+  IfErrors onError
+    Return
+  onError:
+    MessageBox MB_ICONEXCLAMATION "TortoiseGit install failed. You need to install it manually."
 SectionEnd
 
 Section -AdditionalIcons
@@ -376,7 +385,8 @@ Section Uninstall
   Delete "$INSTDIR\uninst.exe"
   Delete "$INSTDIR\rhc.bat"
   Delete "$INSTDIR\rhc"
-  RMDir /r "$INSTDIR\ruby"
+  Delete "$INSTDIR\post-install.sh"
+  #RMDir /r "$INSTDIR\ruby"
 
   Delete "$SMPROGRAMS\rhc\Uninstall.lnk"
   Delete "$SMPROGRAMS\rhc\Website.lnk"
