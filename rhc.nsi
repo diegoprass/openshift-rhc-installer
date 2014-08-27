@@ -345,7 +345,7 @@ Section "install tortoise" SEC05
   File "dist\${TORTOISE_INSTALLER}"
 
   ; run the one click installer
-  ExecWait '"$SYSDIR\msiExec" /i "$INSTDIR\${TORTOISE_INSTALLER}"'
+  ExecWait '"$SYSDIR\msiExec" /i "$INSTDIR\${TORTOISE_INSTALLER}" /qr'
 
   IfErrors onError
     Return
