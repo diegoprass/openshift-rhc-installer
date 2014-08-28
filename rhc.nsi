@@ -300,9 +300,10 @@ Var status
 Section "install git bash" SEC02
   SetOutPath "$INSTDIR"
   File "dist\${GIT_INSTALLER}"
+  File "dist\git-install.cfg"
 
   ; run the one click installer
-  ExecWait "dist\${GIT_INSTALLER} /sp- /silent /nocancel /loadinf=dist\git-install.cfg"
+  ExecWait "$INSTDIR\${GIT_INSTALLER} /sp- /silent /nocancel /loadinf=$INSTDIR\git-install.cfg"
   IfErrors onError
     Return
   onError:
@@ -313,9 +314,10 @@ SectionEnd
 Section "install ruby" SEC03
   SetOutPath "$INSTDIR"
   File "dist\${RUBY_INSTALLER}"
-
+  File "dist\ruby-install.cfg"
+  
   ; run the one click installer
-  ExecWait 'dist\${RUBY_INSTALLER} /verysilent /noreboot /nocancel /noicons /dir="$INSTDIR/ruby"  /loadinf=dist\ruby-install.cfg'
+  ExecWait '$INSTDIR\${RUBY_INSTALLER} /verysilent /noreboot /nocancel /noicons /dir="$INSTDIR\ruby"  /loadinf=ruby-install.cfg'
   IfErrors onError
     Return
   onError:
@@ -348,6 +350,7 @@ Section "install tortoise" SEC05
   ExecWait '"$SYSDIR\msiExec" /i "$INSTDIR\${TORTOISE_INSTALLER}" /qr'
 
   IfErrors onError
+    WriteRegStr HKCU "Software\TortoiseGit" 'SSH' 'ssh.exe'
     Return
   onError:
     MessageBox MB_ICONEXCLAMATION "TortoiseGit install failed. You need to install it manually."
