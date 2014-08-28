@@ -3,7 +3,7 @@ SetCompressor /SOLID lzma
 
 ; HM NIS Edit Wizard helper defines
 !define PRODUCT_NAME "OpenShift-RHC"
-!define PRODUCT_VERSION "1.0.7"
+!define PRODUCT_VERSION "1.0.8"
 !define PRODUCT_PUBLISHER "OpenShift Origin"
 !define PRODUCT_WEB_SITE "http://github.com/openshift/rhc/"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\${PRODUCT_NAME}"
@@ -303,7 +303,7 @@ Section "install git bash" SEC02
   File "dist\git-install.cfg"
 
   ; run the one click installer
-  ExecWait "$INSTDIR\${GIT_INSTALLER} /sp- /silent /nocancel /loadinf=$INSTDIR\git-install.cfg"
+  ExecWait '"$INSTDIR\${GIT_INSTALLER}" /sp- /silent /nocancel "/loadinf=$INSTDIR\git-install.cfg"'
   IfErrors onError
     Return
   onError:
@@ -317,7 +317,8 @@ Section "install ruby" SEC03
   File "dist\ruby-install.cfg"
   
   ; run the one click installer
-  ExecWait '$INSTDIR\${RUBY_INSTALLER} /verysilent /noreboot /nocancel /noicons /dir="$INSTDIR\ruby"  /loadinf=ruby-install.cfg'
+  ;ExecWait "$INSTDIR\${RUBY_INSTALLER} /verysilent /noreboot /nocancel /noicons /dir=$INSTDIR\ruby /loadinf=$INSTDIR\ruby-install.cfg"
+  ExecWait '"$INSTDIR\${RUBY_INSTALLER}" /verysilent /noreboot /nocancel /noicons "/dir=$INSTDIR/ruby" "/loadinf=$INSTDIR\ruby-install.cfg"'
   IfErrors onError
     Return
   onError:
