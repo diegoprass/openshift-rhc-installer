@@ -39,7 +39,7 @@ cat <<EOF
 EOF
 read
 
-rhc setup --server "$libraServerURL" --rhlogin "$rhlogin" --password "$password" --clean --create-toke
+rhc setup --server "$libraServerURL" --rhlogin "$rhlogin" --password "$password" --clean --create-token
 
 cat <<EOF
 +===========================================+
